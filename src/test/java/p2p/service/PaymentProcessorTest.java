@@ -12,6 +12,7 @@ import org.junit.Test;
 import p2p.domain.Transaction;
 import p2p.domain.TransactionType;
 import p2p.domain.User;
+import p2p.dto.DepositRequest;
 import p2p.dto.PaymentRequest;
 import p2p.repository.DataSource;
 import p2p.repository.TransactionRepository;
@@ -100,6 +101,29 @@ public class PaymentProcessorTest {
             assertThat(actualUser2.getBalance()).isEqualByComparingTo(user2.getBalance());
             assertThat(transactionRepository.findAll(configuration)).isEmpty();
         }
+    }
+
+    @Test
+    public void when_depositRequest_then_AddDepositAmountToUserBalance() {
+        User user1 = User.builder().id("190").phone("111").balance(BigDecimal.valueOf(200)).build();
+
+        userRepository.save(user1, configuration);
+
+        DepositRequest request = DepositRequest.builder()
+            .amount(BigDecimal.valueOf(300))
+            .userId(user1.getId())
+            .build();
+
+        target.process(request);
+
+        User actualUser1 = userRepository.findById(user1.getId(), configuration);
+
+        assertThat(actualUser1.getBalance()).isEqualByComparingTo(user1.getBalance().add(request.getAmount()));
+
+        List<Transaction> transactions = transactionRepository.findByUserId(user1.getId(), configuration);
+        assertThat(transactions.size()).isEqualTo(1);
+        assertThat(transactions.get(0).getType()).isEqualTo(TransactionType.DEPOSIT);
+        assertThat(transactions.get(0).getAmount()).isEqualByComparingTo(request.getAmount());
 
     }
 }

@@ -8,13 +8,12 @@ import lombok.Value;
 
 @Value
 @Builder
-@JsonDeserialize(builder = PaymentRequest.PaymentRequestBuilder.class)
-public class PaymentRequest {
+@JsonDeserialize(builder = DepositRequest.DepositRequestBuilder.class)
+public class DepositRequest {
 
-    private String senderPhone;
-    private String recipientPhone;
+    private String userId;
     private BigDecimal amount;
 
     @JsonPOJOBuilder(withPrefix = "")
-    public static class PaymentRequestBuilder {}
+    public static class DepositRequestBuilder {}
 }

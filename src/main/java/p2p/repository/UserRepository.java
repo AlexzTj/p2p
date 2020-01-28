@@ -13,7 +13,14 @@ public class UserRepository {
 
     public User findByPhone(String phone, Configuration connection) {
         UserRecord userRecord = DSL.using(connection).selectFrom(USER)
-            .where(USER.PHONE.eq(phone)).fetchSingle();
+            .where(USER.PHONE.eq(phone)).fetchOne();
+
+        return getUser(userRecord);
+    }
+
+    public User findById(String id, Configuration connection) {
+        UserRecord userRecord = DSL.using(connection).selectFrom(USER)
+            .where(USER.ID.eq(id)).fetchOne();
 
         return getUser(userRecord);
     }
@@ -21,7 +28,7 @@ public class UserRepository {
     public void save(User user, Configuration connection) {
         DSL.using(connection)
             .insertInto(USER, USER.ID, USER.PHONE, USER.BALANCE)
-            .values(user.getId(), user.getPhone(), user.getBalance().doubleValue()).execute();
+            .values(user.getId(), user.getPhone(), user.getBalance() == null ? 0 : user.getBalance().doubleValue()).execute();
     }
 
     public void update(User user, Configuration connection) {
@@ -39,6 +46,9 @@ public class UserRepository {
     }
 
     private User getUser(UserRecord userRecord) {
+        if (userRecord == null) {
+            return null;
+        }
         return User.builder()
             .id(userRecord.getId())
             .balance(BigDecimal.valueOf(userRecord.getBalance()))
