@@ -2,6 +2,7 @@ package service;
 
 import java.sql.Connection;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,34 +25,44 @@ public class PaymentProcessor {
     private final TransactionRepository transactionRepository;
 
     public void process(PaymentRequest request) {
-        Connection connection = DataSource.getConnection();
 
-        DSLContext dslContext = DSL.using(connection);
-        dslContext.transaction(nested -> {
-            User recipient = userRepository.findByPhone(request.getRecipientPhone(), nested);
-            User sender = userRepository.findByPhone(request.getSenderPhone(), nested);
+        try (Connection connection = DataSource.getConnection()) {
 
-            sender.withdraw(request.getAmount());
-            recipient.deposit(request.getAmount());
+            DSLContext dslContext = DSL.using(connection);
+            dslContext.transaction(nested -> {
 
-            userRepository.update(recipient, nested);
-            userRepository.update(sender, nested);
-            transactionRepository.save(Transaction.builder()
-                .userId(recipient.getId())
-                .id(UUID.randomUUID().toString())
-                .amount(request.getAmount())
-                .createdAt(Instant.now())
-                .type(TransactionType.DEPOSIT)
-                .build(), nested);
-            transactionRepository.save(Transaction.builder()
-                .userId(sender.getId())
-                .id(UUID.randomUUID().toString())
-                .amount(request.getAmount())
-                .createdAt(Instant.now())
-                .type(TransactionType.WITHDRAW)
-                .build(), nested);
-            log.info("Transfer {} from sender {} to recipient {}", request.getAmount(), sender.getId(), recipient.getId());
-        });
+                List<User> byPhones = userRepository.findByPhones(request.getRecipientPhone(), request.getSenderPhone(), nested);
+
+                User recipient = byPhones.get(0).getPhone().equals(request.getRecipientPhone()) ? byPhones.get(0) : byPhones.get(1);
+                User sender = byPhones.get(0).getPhone().equals(request.getSenderPhone()) ? byPhones.get(0) : byPhones.get(1);
+
+                sender.withdraw(request.getAmount());
+                recipient.deposit(request.getAmount());
+
+                userRepository.update(recipient, nested);
+                userRepository.update(sender, nested);
+
+                transactionRepository.save(Transaction.builder()
+                    .userId(recipient.getId())
+                    .id(UUID.randomUUID().toString())
+                    .amount(request.getAmount())
+                    .createdAt(Instant.now())
+                    .type(TransactionType.DEPOSIT)
+                    .build(), nested);
+                transactionRepository.save(Transaction.builder()
+                    .userId(sender.getId())
+                    .id(UUID.randomUUID().toString())
+                    .amount(request.getAmount())
+                    .createdAt(Instant.now())
+                    .type(TransactionType.WITHDRAW)
+                    .build(), nested);
+                log.info("Transfer {} from sender {} to recipient {}", request.getAmount(), sender.getId(), recipient.getId());
+            });
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e1) {
+            throw new RuntimeException(e1);
+        }
 
 
     }

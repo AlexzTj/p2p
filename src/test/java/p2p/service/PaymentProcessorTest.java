@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.jooq.Configuration;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -74,6 +77,44 @@ public class PaymentProcessorTest {
         assertThat(transactionsUser2).size().isEqualTo(1);
         assertThat(transactionsUser2.get(0).getAmount()).isEqualByComparingTo(request.getAmount());
         assertThat(transactionsUser2.get(0).getType()).isEqualByComparingTo(TransactionType.DEPOSIT);
+    }
+
+    /**
+     * Prevent lost updates during parallel requests, by using "select for update" expression for both accounts.
+     */
+    @Test
+    public void givenParallelRequests_when_PaymentRequested_then_TransferRequestedMoneyToProperUser() throws InterruptedException {
+        User user1 = User.builder().id("190").phone("111").balance(BigDecimal.valueOf(2000)).build();
+        User user2 = User.builder().id("290").phone("222").balance(BigDecimal.valueOf(2000)).build();
+
+        userRepository.save(user1, configuration);
+        userRepository.save(user2, configuration);
+
+        PaymentRequest request = PaymentRequest.builder()
+            .amount(BigDecimal.valueOf(10))
+            .senderPhone("111")
+            .recipientPhone("222")
+            .build();
+
+        PaymentRequest request2 = PaymentRequest.builder()
+            .amount(BigDecimal.valueOf(5))
+            .senderPhone("222")
+            .recipientPhone("111")
+            .build();
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        for (int i = 0; i < 10; i++) {
+            executorService.submit(() -> target.process(request));
+            executorService.submit(() -> target.process(request2));
+        }
+
+        executorService.awaitTermination(2, TimeUnit.SECONDS);
+        executorService.shutdownNow();
+        User actualUser1 = userRepository.findByPhone(user1.getPhone(), configuration);
+        User actualUser2 = userRepository.findByPhone(user2.getPhone(), configuration);
+
+        assertThat(actualUser1.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(1950));
+        assertThat(actualUser2.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(2050));
+
     }
 
     @Test(expected = IllegalArgumentException.class)

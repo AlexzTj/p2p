@@ -3,6 +3,10 @@ package p2p.repository;
 import static org.jooq.generated.public_.tables.User.USER;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.jooq.Configuration;
 import org.jooq.generated.public_.tables.records.UserRecord;
 import org.jooq.impl.DSL;
@@ -16,6 +20,14 @@ public class UserRepository {
             .where(USER.PHONE.eq(phone)).fetchOne();
 
         return getUser(userRecord);
+    }
+
+    public List<User> findByPhones(String phone1, String phone2, Configuration connection) {
+        List<UserRecord> userRecords = DSL.using(connection).selectFrom(USER)
+            .where(USER.PHONE.in(phone1, phone2)).forUpdate().fetchInto(UserRecord.class);
+
+        return Optional.ofNullable(userRecords).map(e -> e.stream().map(this::getUser).collect(Collectors.toList()))
+            .orElse(Collections.emptyList());
     }
 
     public User findById(String id, Configuration connection) {

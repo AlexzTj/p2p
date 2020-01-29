@@ -11,9 +11,11 @@ public class DataSource {
     private static HikariDataSource ds;
 
     static {
-        config.setJdbcUrl("jdbc:h2:~/test");
+        config.setJdbcUrl("jdbc:h2:~/test;DB_CLOSE_DELAY=-1;MULTI_THREADED=1;");
         config.setUsername("sa");
         config.setPassword("");
+        config.setMinimumIdle(25);
+        config.setMaximumPoolSize(25);
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
