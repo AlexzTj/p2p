@@ -4,6 +4,7 @@
 * Register new users
 * Deposit money to user account
 * Transfer money between users, using only user phone number
+* Supports multiple transactions in parallel, prevents lost updates
 
 ### How to use
 1 Start the application, it will run server on localhost:8080
